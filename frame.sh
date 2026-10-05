@@ -11,10 +11,10 @@
 #
 # PERCENT is a share of the stock top speed (55% duty, ~5500 rpm): 100 = stock.
 # The lowest allowed is 55, which equals the fan's idle speed.
-# Set the headset address first: export FRAME=steamos@192.168.1.50  (your Frame's IP)
+# Headset address: steamos@frame.local by default; override with e.g. export FRAME=steamos@192.168.1.50
 set -euo pipefail
 
-FRAME="${FRAME:-}"
+FRAME="${FRAME:-steamos@frame.local}"
 DEST=/etc/framefan/framefan.py
 CAP=/etc/framefan/cap
 DROPIN=/etc/systemd/system/deckard-fan-control.service.d/framefan.conf
@@ -45,9 +45,21 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
-if [[ -z "$FRAME" && "$cmd" =~ ^(status|watch|set|slider|install|uninstall|log)$ ]]; then
-  echo "Set your headset's address first, e.g.:  export FRAME=steamos@192.168.1.50" >&2
-  echo "(find the IP in the Frame's Wi-Fi settings; see README.md)" >&2
+# Fail early with a useful hint instead of a bare ssh error.
+if [[ "$cmd" =~ ^(status|watch|set|slider|install|uninstall|log)$ ]] && \
+   ! err=$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$FRAME" true 2>&1); then
+  echo "Can't reach the headset at $FRAME:" >&2
+  echo "  ${err##*$'\n'}" >&2
+  case "$err" in
+    *"Could not resolve"*|*"not known"*)
+      echo "The name didn't resolve: the headset is probably off or asleep, so wake it up." >&2
+      echo "If it's awake and this persists, your network may block mDNS; use its IP (Frame's Wi-Fi settings):" >&2
+      echo "  export FRAME=steamos@192.168.1.50" >&2 ;;
+    *"Permission denied"*)
+      echo "SSH key login isn't set up yet:  ssh-copy-id $FRAME" >&2 ;;
+    *)
+      echo "Is the headset awake, on the same network, with Developer Mode on? See README.md." >&2 ;;
+  esac
   exit 1
 fi
 case "$cmd" in

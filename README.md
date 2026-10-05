@@ -68,29 +68,35 @@ cap would sit below the speed the fan runs at when the headset is cool.
 1. In the headset, open **Steam Settings → System** and turn on **Enable Developer Mode**.
 2. In the new **Developer** section, choose **Set User Password** and pick a
    password. SSH uses it, and so does `sudo` during installation.
-3. Find the headset's IP address in its **Wi‑Fi settings**, e.g. `192.168.1.50`.
+3. Keep the headset awake and on the same network as your computer. It can be
+   reached as `frame.local`.
 
 ### 2. Set up SSH key login from your computer
 
 ```sh
-ssh-copy-id steamos@192.168.1.50      # use your Frame's IP; asks for the password once
-ssh steamos@192.168.1.50 true         # should now connect without asking
+ssh-copy-id steamos@frame.local       # asks for the Developer Mode password once
+ssh steamos@frame.local true          # should now connect without asking
 ```
 
 If `ssh-copy-id` says there's no key, create one first with `ssh-keygen -t ed25519`.
+
+`frame.local` is the headset's address advertised over mDNS. If it doesn't resolve
+on your network, use the headset's IP from its **Wi‑Fi settings** instead (e.g.
+`steamos@192.168.1.50`), here and in the `FRAME` variable below.
 
 ### 3. Install
 
 ```sh
 git clone https://github.com/bopke/framefancontrol.git
 cd framefancontrol
-export FRAME=steamos@192.168.1.50     # your Frame's IP
 ./frame.sh install 85                 # starting cap; asks for the Developer Mode password
 ```
 
 The installer checks the value first. Then it installs the fan service, starts the
-slider and prints the current fan status. Tip: setting a DHCP reservation for the
-headset in your router keeps the IP from changing.
+slider and prints the current fan status.
+
+`frame.sh` connects to `steamos@frame.local` by default. To use a different address,
+set `FRAME` first, e.g. `export FRAME=steamos@192.168.1.50`.
 
 ### 4. Use it
 
@@ -109,7 +115,7 @@ thumbsticks) skips over it.
 
 ## Commands
 
-All commands run on your computer and need `FRAME` to be set.
+All commands run on your computer and connect to `steamos@frame.local` unless `FRAME` is set.
 
 | Command | What it does |
 |---|---|
@@ -153,10 +159,13 @@ OS updates. The read-only system image is never modified.
 
 ## Troubleshooting
 
-- **"Set your headset's address first"**: run `export FRAME=steamos@<your Frame's IP>`
-  in the terminal you're using.
-- **`ssh: connect … timed out`**: the headset is asleep, off, or on a different
-  IP. Wake it up and check the IP in its Wi‑Fi settings.
+- **"Can't reach the headset"**: `frame.sh` checks the connection first and
+  suggests a fix:
+  - *Name didn't resolve*: the headset is off or asleep, so wake it. If it's awake,
+    your network may not pass mDNS. Use the IP:
+    `export FRAME=steamos@<your Frame's IP>`.
+  - *Timed out*: the headset is asleep or on another network.
+  - *Permission denied*: SSH key login isn't set up. Run `ssh-copy-id steamos@frame.local`.
 - **The slider doesn't show up**: check that Developer Mode is still on, then run
   `./frame.sh slider`. If a Steam update changed the Quick Access menu, the slider
   can disappear while the cap itself keeps working. Use `./frame.sh set` until it's
